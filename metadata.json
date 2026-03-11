@@ -1,0 +1,5 @@
+{
+  "name": "万豪积分价值与成本计算器",
+  "description": "用于计算万豪酒店现金与积分预订的实际成本、回血比例及积分价值的工具。",
+  "requestFramePermissions": []
+}
