@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function CalendarView({ availability, hotelChain, userTiers, onCreateAlert, language }: Props) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(startOfMonth(new Date()));
   const [displayMode, setDisplayMode] = useState<'none' | 'points' | 'cash' | 'netCost' | 'returnPoints' | 'returnRate' | 'cpp'>('points');
   const t = translations[language];
   

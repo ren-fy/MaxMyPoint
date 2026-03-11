@@ -1,10 +1,10 @@
 import React from 'react';
-import { Menu, User, Globe, Crown } from 'lucide-react';
+import { Menu, User, Globe, Crown, Bug } from 'lucide-react';
 import { Language } from '../types';
 import { translations } from '../i18n/translations';
 
 interface Props {
-  onHome: (view: 'hotels' | 'calculator') => void;
+  onHome: (view: 'hotels' | 'calculator' | 'scraper') => void;
   language: Language;
   setLanguage: (lang: Language) => void;
   isLoggedIn: boolean;
@@ -32,8 +32,10 @@ export default function Header({ onHome, language, setLanguage, isLoggedIn, onLo
           <nav className="hidden md:flex items-center gap-6">
             <button onClick={() => onHome('hotels')} className="text-sm font-medium text-gray-900 hover:text-blue-600">{t.hotels}</button>
             <button onClick={() => onHome('calculator')} className="text-sm font-medium text-gray-500 hover:text-blue-600">{t.calculator}</button>
-            <a href="#" className="text-sm font-medium text-gray-500 hover:text-blue-600">{t.alerts}</a>
-            <a href="#" className="text-sm font-medium text-gray-500 hover:text-blue-600">{t.pricing}</a>
+            <button onClick={() => onHome('scraper')} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+              <Bug className="w-4 h-4" />
+              {language === 'zh' ? '爬虫实验室' : 'Scraper Studio'}
+            </button>
           </nav>
         </div>
         

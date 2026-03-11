@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { HotelWithMetrics, HotelMetrics, Language, SearchFilters, UserTiers } from './types';
-import { MOCK_HOTELS, MOCK_AVAILABILITY } from './data/mockData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Hotel, HotelWithMetrics, HotelMetrics, Language, SearchFilters, UserTiers, HotelAvailability } from './types';
 import { calculateMetrics } from './utils/calculator';
 import Header from './components/Header';
 import HeroSearch from './components/HeroSearch';
@@ -8,7 +7,7 @@ import HotelTable from './components/HotelTable';
 import HotelDetail from './components/HotelDetail';
 import ProfileModal from './components/ProfileModal';
 import CalculatorView from './components/CalculatorView';
-import { Flame } from 'lucide-react';
+import { Flame, Loader2 } from 'lucide-react';
 import { translations } from './i18n/translations';
 
 export default function App() {
@@ -16,6 +15,11 @@ export default function App() {
   const [selectedHotel, setSelectedHotel] = useState<HotelWithMetrics | null>(null);
   const [language, setLanguage] = useState<Language>('zh');
   
+  // Data State
+  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [availability, setAvailability] = useState<Record<string, HotelAvailability>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
   // Auth & Profile State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -36,10 +40,39 @@ export default function App() {
   
   const t = translations[language];
 
+  // Fetch data from backend API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [hotelsRes, availabilityRes] = await Promise.all([
+          fetch('/api/hotels'),
+          fetch('/api/availability')
+        ]);
+        
+        if (!hotelsRes.ok || !availabilityRes.ok) {
+          throw new Error('Failed to fetch data');
+        }
+        
+        const hotelsData = await hotelsRes.json();
+        const availabilityData = await availabilityRes.json();
+        
+        setHotels(hotelsData);
+        setAvailability(availabilityData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
   const filteredHotels = useMemo(() => {
     let result: HotelWithMetrics[] = [];
 
-    for (const hotel of MOCK_HOTELS) {
+    for (const hotel of hotels) {
       // 1. Text Search
       const matchesSearch = 
         hotel.name.toLowerCase().includes(filters.query.toLowerCase()) ||
@@ -52,8 +85,8 @@ export default function App() {
       if (!matchesSearch || !matchesChain) continue;
 
       // 3. Date Filter & Metrics Calculation
-      const availability = MOCK_AVAILABILITY[hotel.id].days;
-      let validDays = availability.filter(d => d.available);
+      const hotelAvailability = availability[hotel.id]?.days || [];
+      let validDays = hotelAvailability.filter(d => d.available);
 
       if (filters.startDate) {
         validDays = validDays.filter(d => d.date >= filters.startDate);
@@ -117,7 +150,7 @@ export default function App() {
     });
 
     return result;
-  }, [filters, userTiers]);
+  }, [filters, userTiers, hotels, availability]);
 
   const handleSearch = (newFilters: SearchFilters) => {
     setFilters(newFilters);
@@ -168,12 +201,17 @@ export default function App() {
         <main className="py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
           <HotelDetail 
             hotel={selectedHotel} 
-            availability={MOCK_AVAILABILITY[selectedHotel.id]}
+            availability={availability[selectedHotel.id] || { hotelId: selectedHotel.id, days: [] }}
             onBack={() => setSelectedHotel(null)} 
             language={language}
             userTiers={userTiers}
           />
         </main>
+      ) : isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+          <p className="text-gray-500 font-medium">Loading hotels...</p>
+        </div>
       ) : (
         <>
           <HeroSearch onSearch={handleSearch} language={language} />
