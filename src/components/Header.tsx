@@ -1,10 +1,10 @@
-import React from 'react';
-import { Menu, User, Globe, Crown, Bug } from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu, User, Globe, Crown, X } from 'lucide-react';
 import { Language } from '../types';
 import { translations } from '../i18n/translations';
 
 interface Props {
-  onHome: (view: 'hotels' | 'calculator' | 'scraper') => void;
+  onHome: (view: 'hotels' | 'calculator' | 'alerts' | 'pricing') => void;
   language: Language;
   setLanguage: (lang: Language) => void;
   isLoggedIn: boolean;
@@ -14,6 +14,12 @@ interface Props {
 
 export default function Header({ onHome, language, setLanguage, isLoggedIn, onLogin, onOpenProfile }: Props) {
   const t = translations[language];
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleNavClick = (view: 'hotels' | 'calculator' | 'alerts' | 'pricing') => {
+    onHome(view);
+    setIsMobileMenuOpen(false);
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -21,7 +27,7 @@ export default function Header({ onHome, language, setLanguage, isLoggedIn, onLo
         <div className="flex items-center gap-8">
           <div 
             className="flex items-center gap-2 cursor-pointer"
-            onClick={() => onHome('hotels')}
+            onClick={() => handleNavClick('hotels')}
           >
             <div className="bg-blue-600 p-1.5 rounded text-white font-bold text-lg leading-none">
               MMP
@@ -30,12 +36,10 @@ export default function Header({ onHome, language, setLanguage, isLoggedIn, onLo
           </div>
           
           <nav className="hidden md:flex items-center gap-6">
-            <button onClick={() => onHome('hotels')} className="text-sm font-medium text-gray-900 hover:text-blue-600">{t.hotels}</button>
-            <button onClick={() => onHome('calculator')} className="text-sm font-medium text-gray-500 hover:text-blue-600">{t.calculator}</button>
-            <button onClick={() => onHome('scraper')} className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-              <Bug className="w-4 h-4" />
-              {language === 'zh' ? '爬虫实验室' : 'Scraper Studio'}
-            </button>
+            <button onClick={() => handleNavClick('hotels')} className="text-sm font-medium text-gray-900 hover:text-blue-600">{t.hotels}</button>
+            <button onClick={() => handleNavClick('calculator')} className="text-sm font-medium text-gray-500 hover:text-blue-600">{t.calculator}</button>
+            <button onClick={() => handleNavClick('alerts')} className="text-sm font-medium text-gray-500 hover:text-blue-600">{t.alerts}</button>
+            <button onClick={() => handleNavClick('pricing')} className="text-sm font-medium text-gray-500 hover:text-blue-600">{t.pricing}</button>
           </nav>
         </div>
         
@@ -81,11 +85,46 @@ export default function Header({ onHome, language, setLanguage, isLoggedIn, onLo
             </>
           )}
 
-          <button className="md:hidden text-gray-500 p-2">
-            <Menu className="w-6 h-6" />
+          <button 
+            className="md:hidden text-gray-500 p-2"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-white border-t border-gray-200 py-2 px-4 shadow-lg absolute w-full">
+          <nav className="flex flex-col gap-4 py-2">
+            <button 
+              onClick={() => handleNavClick('hotels')} 
+              className="text-left text-base font-medium text-gray-900 hover:text-blue-600"
+            >
+              {t.hotels}
+            </button>
+            <button 
+              onClick={() => handleNavClick('calculator')} 
+              className="text-left text-base font-medium text-gray-900 hover:text-blue-600"
+            >
+              {t.calculator}
+            </button>
+            <button 
+              onClick={() => handleNavClick('alerts')} 
+              className="text-left text-base font-medium text-gray-900 hover:text-blue-600"
+            >
+              {t.alerts}
+            </button>
+            <button 
+              onClick={() => handleNavClick('pricing')} 
+              className="text-left text-base font-medium text-gray-900 hover:text-blue-600"
+            >
+              {t.pricing}
+            </button>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

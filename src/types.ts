@@ -1,8 +1,15 @@
 export type Chain = 'Hyatt' | 'Hilton' | 'Marriott' | 'IHG';
 export type Language = 'zh' | 'en';
-export type SortOption = 'recommended' | 'points_asc' | 'cash_asc' | 'net_cost_asc' | 'cpp_desc';
+export type SortOption = 'recommended' | 'points_asc' | 'cash_asc' | 'net_cost_asc' | 'cpp_desc' | 'return_rate_desc' | 'return_points_desc' | 'points_drop_desc' | 'cash_drop_desc';
 export type UserTier = 'Member' | 'Silver' | 'Gold' | 'Platinum' | 'Diamond';
 export type UserTiers = Record<Chain, UserTier>;
+export type PointValuations = Record<Chain, number>;
+
+export interface UserSettings {
+  tiers: UserTiers;
+  pointValues: PointValuations;
+  exchangeRate: number;
+}
 
 export interface Hotel {
   id: string;
@@ -22,6 +29,8 @@ export interface DayAvailability {
   available: boolean;
   points: number;
   cash: number; // RMB
+  pointsDrop?: number; // Compared to yesterday
+  cashDrop?: number; // Compared to yesterday
 }
 
 export interface HotelAvailability {
@@ -34,9 +43,14 @@ export interface HotelMetrics {
   minCash: number;
   minNetCost: number;
   maxReturnPoints: number;
+  maxReturnRate: number;
   maxCpp: number;
   fifthNightFree: number | null;
   hasAvailability: boolean;
+  maxPointsDrop?: number;
+  maxCashDrop?: number;
+  maxPointsDropDate?: string;
+  maxCashDropDate?: string;
 }
 
 export interface HotelWithMetrics extends Hotel {
@@ -49,6 +63,11 @@ export interface SearchFilters {
   startDate: string;
   endDate: string;
   sortBy: SortOption;
+  maxCash?: number;
+  maxPoints?: number;
+  maxNetCost?: number;
+  minReturnRate?: number;
+  minCpp?: number;
 }
 
 export interface SavedCalculation {

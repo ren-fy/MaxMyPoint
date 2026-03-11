@@ -86,11 +86,17 @@ export const generateAvailability = (hotel: Hotel): HotelAvailability => {
     // Add some variance to cash price (RMB)
     const cashVariance = hotel.cashPrice * (0.8 + Math.random() * 0.4);
     
+    // Simulate drops occasionally
+    const hasPointsDrop = isAvailable && Math.random() > 0.95;
+    const hasCashDrop = isAvailable && Math.random() > 0.95;
+    
     days.push({
       date: dateStr,
       available: isAvailable,
-      points: hotel.pointsPrice,
+      points: hasPointsDrop ? hotel.pointsPrice - (Math.floor(Math.random() * 5 + 1) * 5000) : hotel.pointsPrice,
       cash: Math.round(cashVariance),
+      pointsDrop: hasPointsDrop ? (Math.floor(Math.random() * 5 + 1) * 5000) : undefined,
+      cashDrop: hasCashDrop ? Math.floor(Math.random() * 500 + 100) : undefined,
     });
   }
   

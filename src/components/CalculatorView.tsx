@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Chain, Language, UserTier, SavedCalculation } from '../types';
-import { CHAIN_POLICIES } from '../utils/calculator';
+import { CHAIN_POLICIES, DEFAULT_POINT_VALUES } from '../utils/calculator';
 import { translations } from '../i18n/translations';
 import { Calculator, DollarSign, Percent, Gift, Activity, Target, PlusCircle, Coins, Save, Trash2, Clock } from 'lucide-react';
 
@@ -21,44 +21,30 @@ export default function CalculatorView({ language }: Props) {
   const [quarterlyPromo, setQuarterlyPromo] = useState<number>(0);
   const [targetedPromo, setTargetedPromo] = useState<number>(0);
   const [otherPoints, setOtherPoints] = useState<number>(0);
-  const [pointValue, setPointValue] = useState<number>(CHAIN_POLICIES['Marriott'].valuePerPointRMB * 10000); // Value per 10k points
+  const [pointValue, setPointValue] = useState<number>(DEFAULT_POINT_VALUES['Marriott'] * 10000); // Value per 10k points
 
   // Saved Calculations State
   const [savedCalculations, setSavedCalculations] = useState<SavedCalculation[]>([]);
-  const [scrapedHotels, setScrapedHotels] = useState<any[]>([]);
-  const [isScraping, setIsScraping] = useState(false);
 
   useEffect(() => {
-    fetch('/api/calculations')
-      .then(res => res.json())
-      .then(data => setSavedCalculations(data))
-      .catch(err => console.error('Failed to fetch calculations:', err));
-
-    fetch('/api/hotels')
-      .then(res => res.json())
-      .then(data => setScrapedHotels(data))
-      .catch(err => console.error('Failed to fetch hotels:', err));
-  }, []);
-
-  const handleSyncHotels = async () => {
-    setIsScraping(true);
-    try {
-      const res = await fetch('/api/hotels/sync', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setScrapedHotels(data.data);
+    const fetchCalculations = async () => {
+      try {
+        const res = await fetch('/api/calculations');
+        if (res.ok) {
+          const data = await res.json();
+          setSavedCalculations(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch calculations:', error);
       }
-    } catch (err) {
-      console.error('Failed to sync hotels:', err);
-    } finally {
-      setIsScraping(false);
-    }
-  };
+    };
+    fetchCalculations();
+  }, []);
 
   // Handle chain change to update default point value and tier
   const handleChainChange = (newChain: Chain) => {
     setChain(newChain);
-    setPointValue(CHAIN_POLICIES[newChain].valuePerPointRMB * 10000);
+    setPointValue(DEFAULT_POINT_VALUES[newChain] * 10000);
     // Set a sensible default tier
     if (newChain === 'Hilton') setTier('Diamond');
     else if (newChain === 'Marriott') setTier('Platinum');
@@ -110,7 +96,7 @@ export default function CalculatorView({ language }: Props) {
       },
       results: { totalPoints, returnRate, netCost: referenceCost }
     };
-
+    
     try {
       const res = await fetch('/api/calculations', {
         method: 'POST',
@@ -118,10 +104,11 @@ export default function CalculatorView({ language }: Props) {
         body: JSON.stringify(newCalc)
       });
       if (res.ok) {
-        setSavedCalculations(prev => [newCalc, ...prev]);
+        const savedCalc = await res.json();
+        setSavedCalculations(prev => [savedCalc, ...prev]);
       }
-    } catch (err) {
-      console.error('Failed to save calculation:', err);
+    } catch (error) {
+      console.error('Failed to save calculation:', error);
     }
   };
 
@@ -140,12 +127,14 @@ export default function CalculatorView({ language }: Props) {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/calculations/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/calculations/${id}`, {
+        method: 'DELETE'
+      });
       if (res.ok) {
         setSavedCalculations(prev => prev.filter(c => c.id !== id));
       }
-    } catch (err) {
-      console.error('Failed to delete calculation:', err);
+    } catch (error) {
+      console.error('Failed to delete calculation:', error);
     }
   };
 
@@ -383,8 +372,8 @@ export default function CalculatorView({ language }: Props) {
         </div>
 
         {/* Results Panel */}
-        <div className="space-y-6 lg:sticky lg:top-24 h-fit">
-          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-md p-6 text-white">
+        <div className="space-y-6">
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-md p-6 text-white lg:sticky lg:top-24">
             <h2 className="text-lg font-medium text-blue-100 mb-2">
               {language === 'zh' ? '预计总收益' : 'Estimated Total Return'}
             </h2>
@@ -461,54 +450,6 @@ export default function CalculatorView({ language }: Props) {
                 <Save className="w-4 h-4" />
                 {t.saveCalculation}
               </button>
-            </div>
-
-            {/* Scraped Hotels Panel */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-indigo-500" />
-                  {language === 'zh' ? '实时酒店数据 (爬虫)' : 'Live Hotel Data (Scraper)'}
-                </h3>
-                <button
-                  onClick={handleSyncHotels}
-                  disabled={isScraping}
-                  className="text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-1.5 rounded-md font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {isScraping ? (
-                    <span className="animate-spin inline-block w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></span>
-                  ) : (
-                    <Clock className="w-4 h-4" />
-                  )}
-                  {language === 'zh' ? '同步数据' : 'Sync Data'}
-                </button>
-              </div>
-              
-              {scrapedHotels.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  {language === 'zh' ? '暂无数据，请点击同步' : 'No data. Click sync to fetch.'}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {scrapedHotels.map(hotel => (
-                    <div key={hotel.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-medium text-sm text-gray-900">{hotel.name}</span>
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                          {hotel.chain}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center text-sm mt-2">
-                        <span className="text-emerald-600 font-medium">¥{hotel.priceCash}</span>
-                        <span className="text-blue-600 font-medium">{hotel.pricePoints.toLocaleString()} pts</span>
-                      </div>
-                      <div className="text-[10px] text-gray-400 mt-2 text-right">
-                        {new Date(hotel.lastUpdated).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>

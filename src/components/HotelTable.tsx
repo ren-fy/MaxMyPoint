@@ -43,6 +43,7 @@ export default function HotelTable({ hotels, onSelect, language }: Props) {
               <th className="p-3">{t.minPoints}</th>
               <th className="p-3">{t.minCost}</th>
               <th className="p-3">{t.maxReturn}</th>
+              <th className="p-3">{t.returnRate}</th>
               <th className="p-3">{t.maxValue}</th>
               <th className="p-3">{t.fifthNightFree}</th>
               <th className="p-3"></th>
@@ -76,6 +77,20 @@ export default function HotelTable({ hotels, onSelect, language }: Props) {
                           <span className="truncate">{hotel.city}, {hotel.country}</span>
                         </div>
                       </div>
+                      {(hotel.metrics.maxPointsDrop || hotel.metrics.maxCashDrop) ? (
+                        <div className="flex items-center gap-2 mt-1.5">
+                          {hotel.metrics.maxPointsDrop ? (
+                            <span className="text-[10px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
+                              ↓ {formatNumber(hotel.metrics.maxPointsDrop)} pts ({hotel.metrics.maxPointsDropDate})
+                            </span>
+                          ) : null}
+                          {hotel.metrics.maxCashDrop ? (
+                            <span className="text-[10px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
+                              ↓ ¥{hotel.metrics.maxCashDrop} ({hotel.metrics.maxCashDropDate})
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </td>
@@ -90,6 +105,9 @@ export default function HotelTable({ hotels, onSelect, language }: Props) {
                 </td>
                 <td className="p-3 font-medium text-amber-600">
                   {hotel.metrics.maxReturnPoints > 0 ? formatNumber(hotel.metrics.maxReturnPoints) : t.na}
+                </td>
+                <td className="p-3 font-medium text-amber-600">
+                  {hotel.metrics.maxReturnRate > 0 ? `${hotel.metrics.maxReturnRate}%` : t.na}
                 </td>
                 <td className="p-3 font-medium text-emerald-600">
                   {hotel.metrics.maxCpp > 0 ? `¥${hotel.metrics.maxCpp.toFixed(0)}` : t.na}
@@ -134,6 +152,20 @@ export default function HotelTable({ hotels, onSelect, language }: Props) {
                     <span className="truncate">{hotel.city}</span>
                   </div>
                 </div>
+                {(hotel.metrics.maxPointsDrop || hotel.metrics.maxCashDrop) ? (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                    {hotel.metrics.maxPointsDrop ? (
+                      <span className="text-[9px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
+                        ↓ {formatNumber(hotel.metrics.maxPointsDrop)} pts ({hotel.metrics.maxPointsDropDate})
+                      </span>
+                    ) : null}
+                    {hotel.metrics.maxCashDrop ? (
+                      <span className="text-[9px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-100">
+                        ↓ ¥{hotel.metrics.maxCashDrop} ({hotel.metrics.maxCashDropDate})
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
             
@@ -160,6 +192,12 @@ export default function HotelTable({ hotels, onSelect, language }: Props) {
                 <span className="text-[10px] text-gray-500 uppercase">{t.maxReturn}</span>
                 <span className="text-xs font-medium text-amber-600">
                   {hotel.metrics.maxReturnPoints > 0 ? formatNumber(hotel.metrics.maxReturnPoints) : t.na}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-gray-500 uppercase">{t.returnRate}</span>
+                <span className="text-xs font-medium text-amber-600">
+                  {hotel.metrics.maxReturnRate > 0 ? `${hotel.metrics.maxReturnRate}%` : t.na}
                 </span>
               </div>
               <div className="flex flex-col">

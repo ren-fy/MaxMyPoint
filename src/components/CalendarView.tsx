@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
-import { HotelAvailability, DayAvailability, Language, Chain, UserTiers } from '../types';
+import { HotelAvailability, DayAvailability, Language, Chain, UserSettings } from '../types';
 import { calculateMetrics } from '../utils/calculator';
 import { cn } from '../utils/cn';
 import { ChevronLeft, ChevronRight, Bell } from 'lucide-react';
@@ -9,12 +9,12 @@ import { translations } from '../i18n/translations';
 interface Props {
   availability: HotelAvailability;
   hotelChain: Chain;
-  userTiers: UserTiers;
-  onCreateAlert: () => void;
+  userSettings: UserSettings;
+  onCreateAlert: (date?: string) => void;
   language: Language;
 }
 
-export default function CalendarView({ availability, hotelChain, userTiers, onCreateAlert, language }: Props) {
+export default function CalendarView({ availability, hotelChain, userSettings, onCreateAlert, language }: Props) {
   const [currentDate, setCurrentDate] = useState(startOfMonth(new Date()));
   const [displayMode, setDisplayMode] = useState<'none' | 'points' | 'cash' | 'netCost' | 'returnPoints' | 'returnRate' | 'cpp'>('points');
   const t = translations[language];
@@ -73,13 +73,14 @@ export default function CalendarView({ availability, hotelChain, userTiers, onCr
             const isAvailable = dayData?.available;
             
             const metrics = isAvailable && dayData 
-              ? calculateMetrics(hotelChain, dayData.cash, dayData.points, userTiers) 
+              ? calculateMetrics(hotelChain, dayData.cash, dayData.points, userSettings) 
               : null;
             
             return (
               <div 
                 key={dateStr}
                 className="group relative aspect-square"
+                onClick={() => onCreateAlert(dateStr)}
               >
                 <div className={cn(
                   "w-full h-full flex flex-col items-center justify-center rounded-md cursor-pointer transition-all p-0.5",
@@ -90,14 +91,28 @@ export default function CalendarView({ availability, hotelChain, userTiers, onCr
                 )}>
                   <span className="text-xs sm:text-sm font-medium leading-none">{format(day, 'd')}</span>
                   {isAvailable && displayMode === 'points' && dayData && (
-                    <span className="text-[8px] sm:text-[9px] font-bold leading-none mt-0.5 sm:mt-1 text-green-700">
-                      {formatNumber(dayData.points)}
-                    </span>
+                    <div className="flex flex-col items-center mt-0.5 sm:mt-1">
+                      <span className="text-[8px] sm:text-[9px] font-bold leading-none text-green-700">
+                        {formatNumber(dayData.points)}
+                      </span>
+                      {dayData.pointsDrop && (
+                        <span className="text-[7px] sm:text-[8px] font-bold leading-none mt-0.5 sm:mt-1 text-green-600">
+                          ↓{formatNumber(dayData.pointsDrop)}
+                        </span>
+                      )}
+                    </div>
                   )}
                   {isAvailable && displayMode === 'cash' && dayData && (
-                    <span className="text-[8px] sm:text-[9px] font-bold leading-none mt-0.5 sm:mt-1 text-green-700">
-                      ¥{formatNumber(dayData.cash)}
-                    </span>
+                    <div className="flex flex-col items-center mt-0.5 sm:mt-1">
+                      <span className="text-[8px] sm:text-[9px] font-bold leading-none text-green-700">
+                        ¥{formatNumber(dayData.cash)}
+                      </span>
+                      {dayData.cashDrop && (
+                        <span className="text-[7px] sm:text-[8px] font-bold leading-none mt-0.5 sm:mt-1 text-green-600">
+                          ↓¥{formatNumber(dayData.cashDrop)}
+                        </span>
+                      )}
+                    </div>
                   )}
                   {isAvailable && displayMode === 'netCost' && metrics && (
                     <span className="text-[8px] sm:text-[9px] font-bold leading-none mt-0.5 sm:mt-1 text-rose-600">
@@ -151,6 +166,18 @@ export default function CalendarView({ availability, hotelChain, userTiers, onCr
                           <span className="text-gray-400">{t.value}:</span>
                           <span className="font-semibold text-blue-400">¥{metrics.cpp}</span>
                         </div>
+                        {dayData.pointsDrop && (
+                          <div className="flex justify-between border-t border-gray-700 pt-1.5 mt-1.5">
+                            <span className="text-gray-400">{t.pointsDrop}:</span>
+                            <span className="font-semibold text-green-400">↓ {dayData.pointsDrop.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {dayData.cashDrop && (
+                          <div className="flex justify-between border-t border-gray-700 pt-1.5 mt-1.5">
+                            <span className="text-gray-400">{t.cashDrop}:</span>
+                            <span className="font-semibold text-green-400">↓ ¥{dayData.cashDrop.toLocaleString()}</span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="text-gray-400 py-2">{t.notAvailable}</div>
@@ -206,7 +233,7 @@ export default function CalendarView({ availability, hotelChain, userTiers, onCr
           </div>
 
           <button 
-            onClick={onCreateAlert}
+            onClick={() => onCreateAlert()}
             className="flex items-center gap-1.5 sm:gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-colors whitespace-nowrap"
           >
             <Bell className="w-4 h-4" />

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HotelWithMetrics, HotelAvailability, Language, UserTiers } from '../types';
+import { HotelWithMetrics, HotelAvailability, Language, UserSettings } from '../types';
 import { ArrowLeft, MapPin, ExternalLink, Bell, Info } from 'lucide-react';
 import CalendarView from './CalendarView';
 import AlertModal from './AlertModal';
@@ -11,7 +11,7 @@ interface Props {
   availability: HotelAvailability;
   onBack: () => void;
   language: Language;
-  userTiers: UserTiers;
+  userSettings: UserSettings;
 }
 
 const getChainColor = (chain: string) => {
@@ -32,9 +32,15 @@ const formatNumber = (num: number) => {
   return num.toString();
 };
 
-export default function HotelDetail({ hotel, availability, onBack, language, userTiers }: Props) {
+export default function HotelDetail({ hotel, availability, onBack, language, userSettings }: Props) {
   const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertInitialDate, setAlertInitialDate] = useState<string | undefined>();
   const t = translations[language];
+
+  const handleOpenAlert = (date?: string) => {
+    setAlertInitialDate(date);
+    setShowAlertModal(true);
+  };
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
@@ -127,7 +133,7 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
               
               <div className="w-full sm:w-auto flex justify-end gap-3 mt-4 sm:mt-0">
                 <button 
-                  onClick={() => setShowAlertModal(true)}
+                  onClick={() => handleOpenAlert()}
                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2.5 sm:py-2 rounded-lg font-medium transition-colors"
                 >
                   <Bell className="w-4 h-4" />
@@ -157,14 +163,15 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
       <CalendarView 
         availability={availability}
         hotelChain={hotel.chain}
-        userTiers={userTiers}
-        onCreateAlert={() => setShowAlertModal(true)} 
+        userSettings={userSettings}
+        onCreateAlert={handleOpenAlert} 
         language={language}
       />
 
       {showAlertModal && (
         <AlertModal 
           hotel={hotel} 
+          initialDate={alertInitialDate}
           onClose={() => setShowAlertModal(false)} 
           language={language}
         />

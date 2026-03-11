@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Hotel, HotelWithMetrics, HotelMetrics, Language, SearchFilters, UserTiers, HotelAvailability } from './types';
+import { Hotel, HotelWithMetrics, HotelMetrics, Language, SearchFilters, UserSettings, HotelAvailability } from './types';
 import { calculateMetrics } from './utils/calculator';
 import Header from './components/Header';
 import HeroSearch from './components/HeroSearch';
@@ -7,11 +7,13 @@ import HotelTable from './components/HotelTable';
 import HotelDetail from './components/HotelDetail';
 import ProfileModal from './components/ProfileModal';
 import CalculatorView from './components/CalculatorView';
+import AlertsView from './components/AlertsView';
+import PricingView from './components/PricingView';
 import { Flame, Loader2 } from 'lucide-react';
 import { translations } from './i18n/translations';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'hotels' | 'calculator'>('hotels');
+  const [currentView, setCurrentView] = useState<'hotels' | 'calculator' | 'alerts' | 'pricing'>('hotels');
   const [selectedHotel, setSelectedHotel] = useState<HotelWithMetrics | null>(null);
   const [language, setLanguage] = useState<Language>('zh');
   
@@ -23,12 +25,35 @@ export default function App() {
   // Auth & Profile State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [userTiers, setUserTiers] = useState<UserTiers>({
-    Hyatt: 'Member',
-    Hilton: 'Member',
-    Marriott: 'Member',
-    IHG: 'Member'
+  const [userSettings, setUserSettings] = useState<UserSettings>(() => {
+    const saved = localStorage.getItem('userSettings');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse user settings', e);
+      }
+    }
+    return {
+      tiers: {
+        Hyatt: 'Member',
+        Hilton: 'Member',
+        Marriott: 'Member',
+        IHG: 'Member'
+      },
+      pointValues: {
+        Hyatt: 0.12,
+        Marriott: 0.05,
+        Hilton: 0.03,
+        IHG: 0.035
+      },
+      exchangeRate: 7.2
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('userSettings', JSON.stringify(userSettings));
+  }, [userSettings]);
 
   const [filters, setFilters] = useState<SearchFilters>({
     query: '',
@@ -105,19 +130,34 @@ export default function App() {
         minCash: Infinity,
         minNetCost: Infinity,
         maxReturnPoints: 0,
+        maxReturnRate: 0,
         maxCpp: 0,
         fifthNightFree: null,
-        hasAvailability: validDays.length > 0
+        hasAvailability: validDays.length > 0,
+        maxPointsDrop: 0,
+        maxCashDrop: 0,
+        maxPointsDropDate: undefined,
+        maxCashDropDate: undefined
       };
 
       if (validDays.length > 0) {
         validDays.forEach(d => {
-          const dayMetrics = calculateMetrics(hotel.chain, d.cash, d.points, userTiers);
+          const dayMetrics = calculateMetrics(hotel.chain, d.cash, d.points, userSettings);
           metrics.minPoints = Math.min(metrics.minPoints, d.points);
           metrics.minCash = Math.min(metrics.minCash, d.cash);
           metrics.minNetCost = Math.min(metrics.minNetCost, dayMetrics.netCost);
           metrics.maxReturnPoints = Math.max(metrics.maxReturnPoints, dayMetrics.returnPoints);
+          metrics.maxReturnRate = Math.max(metrics.maxReturnRate, dayMetrics.returnRate);
           metrics.maxCpp = Math.max(metrics.maxCpp, dayMetrics.cpp);
+
+          if (d.pointsDrop && d.pointsDrop > (metrics.maxPointsDrop || 0)) {
+            metrics.maxPointsDrop = d.pointsDrop;
+            metrics.maxPointsDropDate = d.date;
+          }
+          if (d.cashDrop && d.cashDrop > (metrics.maxCashDrop || 0)) {
+            metrics.maxCashDrop = d.cashDrop;
+            metrics.maxCashDropDate = d.date;
+          }
         });
         
         if (hotel.chain === 'Marriott' || hotel.chain === 'Hilton') {
@@ -125,13 +165,20 @@ export default function App() {
         }
       }
 
+      // 4. Apply advanced filters
+      if (filters.maxCash && metrics.minCash > filters.maxCash) continue;
+      if (filters.maxPoints && metrics.minPoints > filters.maxPoints) continue;
+      if (filters.maxNetCost && metrics.minNetCost > filters.maxNetCost) continue;
+      if (filters.minReturnRate && metrics.maxReturnRate < filters.minReturnRate) continue;
+      if (filters.minCpp && metrics.maxCpp < filters.minCpp) continue;
+
       result.push({
         ...hotel,
         metrics
       });
     }
 
-    // 4. Sorting
+    // 5. Sorting
     result.sort((a, b) => {
       switch (filters.sortBy) {
         case 'points_asc':
@@ -142,6 +189,14 @@ export default function App() {
           return a.metrics.minNetCost - b.metrics.minNetCost;
         case 'cpp_desc':
           return b.metrics.maxCpp - a.metrics.maxCpp;
+        case 'return_rate_desc':
+          return b.metrics.maxReturnRate - a.metrics.maxReturnRate;
+        case 'return_points_desc':
+          return b.metrics.maxReturnPoints - a.metrics.maxReturnPoints;
+        case 'points_drop_desc':
+          return (b.metrics.maxPointsDrop || 0) - (a.metrics.maxPointsDrop || 0);
+        case 'cash_drop_desc':
+          return (b.metrics.maxCashDrop || 0) - (a.metrics.maxCashDrop || 0);
         case 'recommended':
         default:
           // Default sort by availability score (descending)
@@ -150,7 +205,7 @@ export default function App() {
     });
 
     return result;
-  }, [filters, userTiers, hotels, availability]);
+  }, [filters, userSettings, hotels, availability]);
 
   const handleSearch = (newFilters: SearchFilters) => {
     setFilters(newFilters);
@@ -165,12 +220,21 @@ export default function App() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setShowProfileModal(false);
-    // Reset tiers on logout
-    setUserTiers({
-      Hyatt: 'Member',
-      Hilton: 'Member',
-      Marriott: 'Member',
-      IHG: 'Member'
+    // Reset settings on logout
+    setUserSettings({
+      tiers: {
+        Hyatt: 'Member',
+        Hilton: 'Member',
+        Marriott: 'Member',
+        IHG: 'Member'
+      },
+      pointValues: {
+        Hyatt: 0.12,
+        Marriott: 0.05,
+        Hilton: 0.03,
+        IHG: 0.035
+      },
+      exchangeRate: 7.2
     });
   };
 
@@ -197,6 +261,10 @@ export default function App() {
 
       {currentView === 'calculator' ? (
         <CalculatorView language={language} />
+      ) : currentView === 'alerts' ? (
+        <AlertsView language={language} />
+      ) : currentView === 'pricing' ? (
+        <PricingView language={language} />
       ) : selectedHotel ? (
         <main className="py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
           <HotelDetail 
@@ -204,7 +272,7 @@ export default function App() {
             availability={availability[selectedHotel.id] || { hotelId: selectedHotel.id, days: [] }}
             onBack={() => setSelectedHotel(null)} 
             language={language}
-            userTiers={userTiers}
+            userSettings={userSettings}
           />
         </main>
       ) : isLoading ? (
@@ -246,8 +314,8 @@ export default function App() {
 
       {showProfileModal && (
         <ProfileModal 
-          userTiers={userTiers}
-          onSave={setUserTiers}
+          userSettings={userSettings}
+          onSave={setUserSettings}
           onClose={() => setShowProfileModal(false)}
           onLogout={handleLogout}
           language={language}
