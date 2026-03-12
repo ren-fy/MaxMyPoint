@@ -76,12 +76,21 @@ export const generateAvailability = (hotel: Hotel): HotelAvailability => {
   const days: DayAvailability[] = [];
   const today = new Date();
   
+  // Inject a guaranteed 5-day availability block starting in 10-20 days for testing 5th night free
+  const guaranteedStartOffset = Math.floor(Math.random() * 10) + 10;
+  const isEligibleFor5thNight = ['Marriott', 'Hilton', 'IHG'].includes(hotel.chain);
+
   for (let i = 0; i < 365; i++) {
     const currentDate = addDays(today, i);
     const dateStr = format(currentDate, 'yyyy-MM-dd');
     
     // Random availability based on the score
-    const isAvailable = Math.random() * 100 < hotel.availabilityScore;
+    let isAvailable = Math.random() * 100 < hotel.availabilityScore;
+    
+    // Force availability for the guaranteed 5-day block
+    if (isEligibleFor5thNight && i >= guaranteedStartOffset && i < guaranteedStartOffset + 5) {
+      isAvailable = true;
+    }
     
     // Add some variance to cash price (RMB)
     const cashVariance = hotel.cashPrice * (0.8 + Math.random() * 0.4);

@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { HotelWithMetrics, HotelAvailability, Language, UserSettings } from '../types';
+import { HotelWithMetrics, HotelAvailability, Language, UserSettings, CHAIN_NAMES_ZH } from '../types';
 import { ArrowLeft, MapPin, ExternalLink, Bell, Info } from 'lucide-react';
 import CalendarView from './CalendarView';
+import FifthNightCalculator from './FifthNightCalculator';
 import AlertModal from './AlertModal';
+import PriceTrendChart from './PriceTrendChart';
+import SmartMixedBooking from './SmartMixedBooking';
 import { cn } from '../utils/cn';
 import { translations } from '../i18n/translations';
+import { BUY_POINTS_COST_USD } from '../utils/calculator';
 
 interface Props {
   hotel: HotelWithMetrics;
@@ -66,7 +70,7 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <span className={cn("px-3 py-1 rounded-md text-xs font-bold border", getChainColor(hotel.chain))}>
-                  {hotel.chain}
+                  {language === 'zh' ? CHAIN_NAMES_ZH[hotel.chain] : hotel.chain}
                 </span>
                 {hotel.category && (
                   <span className="text-sm text-gray-500 font-medium">{hotel.category}</span>
@@ -87,6 +91,9 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
                 <div className="text-xl sm:text-2xl font-bold text-blue-600">
                   {hotel.metrics.minPoints !== Infinity ? formatNumber(hotel.metrics.minPoints) : t.na}
                 </div>
+                {hotel.metrics.minPoints !== Infinity && (
+                  <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{hotel.metrics.minPointsDate}</div>
+                )}
               </div>
               
               <div className="h-10 w-px bg-gray-200 hidden sm:block" />
@@ -96,6 +103,9 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
                 <div className="text-xl sm:text-2xl font-bold text-gray-900">
                   {hotel.metrics.minCash !== Infinity ? `¥${hotel.metrics.minCash.toLocaleString()}` : t.na}
                 </div>
+                {hotel.metrics.minCash !== Infinity && (
+                  <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{hotel.metrics.minCashDate}</div>
+                )}
               </div>
 
               <div className="h-10 w-px bg-gray-200 hidden sm:block" />
@@ -105,6 +115,9 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
                 <div className="text-xl sm:text-2xl font-bold text-amber-600">
                   {hotel.metrics.maxReturnPoints > 0 ? formatNumber(hotel.metrics.maxReturnPoints) : t.na}
                 </div>
+                {hotel.metrics.maxReturnPoints > 0 && (
+                  <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{hotel.metrics.maxReturnPointsDate}</div>
+                )}
               </div>
 
               <div className="h-10 w-px bg-gray-200 hidden sm:block" />
@@ -114,6 +127,9 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
                 <div className="text-xl sm:text-2xl font-bold text-gray-900">
                   {hotel.metrics.minNetCost !== Infinity ? `¥${hotel.metrics.minNetCost.toLocaleString()}` : t.na}
                 </div>
+                {hotel.metrics.minNetCost !== Infinity && (
+                  <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{hotel.metrics.minNetCostDate}</div>
+                )}
               </div>
 
               {hotel.metrics.fifthNightFree && (
@@ -149,7 +165,45 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
         </div>
       </div>
 
-      <div className="mb-6 px-2 sm:px-0">
+      <FifthNightCalculator 
+        availability={availability}
+        hotelChain={hotel.chain}
+        userSettings={userSettings}
+        language={language}
+      />
+
+      {(() => {
+        const buyPointsCostRMBPerPoint = BUY_POINTS_COST_USD[hotel.chain] * userSettings.exchangeRate;
+        const buyPointsTotalCost = hotel.metrics.minPoints * buyPointsCostRMBPerPoint;
+        if (hotel.metrics.minPoints !== Infinity && hotel.metrics.minCash !== Infinity && buyPointsTotalCost < hotel.metrics.minCash) {
+          const savings = hotel.metrics.minCash - buyPointsTotalCost;
+          return (
+            <div className="mt-4 mb-8 p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-sm text-emerald-800 flex items-start gap-3">
+              <span className="text-xl">💡</span>
+              <div>
+                <strong className="block mb-1">{t.buyPointsArbitrage}</strong>
+                {t.buyPointsTip} <strong className="text-emerald-900">¥{savings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>! 
+                ({t.buyPointsCost}: ¥{buyPointsTotalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })})
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      <SmartMixedBooking 
+        availability={availability.days}
+        language={language}
+        userSettings={userSettings}
+        chain={hotel.chain}
+      />
+
+      <PriceTrendChart 
+        data={availability.days}
+        language={language}
+      />
+
+      <div className="mt-8 mb-6 px-2 sm:px-0">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t.calendarTitle}</h2>
         <p className="text-sm sm:text-base text-gray-500">{t.calendarDesc}</p>
         <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800 flex items-start gap-3">

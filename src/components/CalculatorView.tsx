@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Chain, Language, UserTier, SavedCalculation } from '../types';
-import { CHAIN_POLICIES, DEFAULT_POINT_VALUES } from '../utils/calculator';
+import { Chain, Language, UserTier, SavedCalculation, UserSettings, CHAIN_TIERS, CHAIN_NAMES_ZH, CHAIN_TIERS_ZH } from '../types';
+import { CHAIN_POLICIES, DEFAULT_POINT_VALUES, BUY_POINTS_COST_USD } from '../utils/calculator';
 import { translations } from '../i18n/translations';
 import { Calculator, DollarSign, Percent, Gift, Activity, Target, PlusCircle, Coins, Save, Trash2, Clock } from 'lucide-react';
 
 interface Props {
   language: Language;
+  userSettings?: UserSettings;
 }
 
-export default function CalculatorView({ language }: Props) {
+export default function CalculatorView({ language, userSettings }: Props) {
   const t = translations[language];
 
   // Form State
   const [chain, setChain] = useState<Chain>('Marriott');
-  const [tier, setTier] = useState<UserTier>('Platinum');
+  const [tier, setTier] = useState<UserTier>('Platinum Elite');
   const [roomRate, setRoomRate] = useState<number>(1000); // Pre-tax room rate in local currency
-  const [exchangeRate, setExchangeRate] = useState<number>(7.2); // Local currency to USD (e.g., 7.2 RMB = 1 USD)
-  const [taxRate, setTaxRate] = useState<number>(16.6); // Tax rate %
+  const [exchangeRate, setExchangeRate] = useState<number>(userSettings?.exchangeRate || 6.8); // Local currency to USD (e.g., 6.8 RMB = 1 USD)
+  const [taxRate, setTaxRate] = useState<number>(userSettings?.taxRate || 16.0); // Tax rate %
   const [welcomePoints, setWelcomePoints] = useState<number>(1000);
   const [quarterlyPromo, setQuarterlyPromo] = useState<number>(0);
   const [targetedPromo, setTargetedPromo] = useState<number>(0);
@@ -25,6 +26,13 @@ export default function CalculatorView({ language }: Props) {
 
   // Saved Calculations State
   const [savedCalculations, setSavedCalculations] = useState<SavedCalculation[]>([]);
+
+  useEffect(() => {
+    if (userSettings) {
+      setExchangeRate(userSettings.exchangeRate);
+      setTaxRate(userSettings.taxRate || 16.0);
+    }
+  }, [userSettings]);
 
   useEffect(() => {
     const fetchCalculations = async () => {
@@ -47,9 +55,9 @@ export default function CalculatorView({ language }: Props) {
     setPointValue(DEFAULT_POINT_VALUES[newChain] * 10000);
     // Set a sensible default tier
     if (newChain === 'Hilton') setTier('Diamond');
-    else if (newChain === 'Marriott') setTier('Platinum');
-    else if (newChain === 'Hyatt') setTier('Member'); // Globalist is not in our mock data, using Member
-    else setTier('Platinum');
+    else if (newChain === 'Marriott') setTier('Platinum Elite');
+    else if (newChain === 'Hyatt') setTier('Globalist');
+    else setTier('Platinum Elite');
   };
 
   // Calculations
@@ -176,7 +184,7 @@ export default function CalculatorView({ language }: Props) {
                   className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none"
                 >
                   {Object.keys(CHAIN_POLICIES).map(c => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>{language === 'zh' ? CHAIN_NAMES_ZH[c as Chain] : c}</option>
                   ))}
                 </select>
               </div>
@@ -187,11 +195,9 @@ export default function CalculatorView({ language }: Props) {
                   onChange={(e) => setTier(e.target.value as UserTier)}
                   className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none"
                 >
-                  <option value="Member">{t.tierMember}</option>
-                  <option value="Silver">{t.tierSilver}</option>
-                  <option value="Gold">{t.tierGold}</option>
-                  <option value="Platinum">{t.tierPlatinum}</option>
-                  <option value="Diamond">{t.tierDiamond}</option>
+                  {CHAIN_TIERS[chain].map(t => (
+                    <option key={t} value={t}>{language === 'zh' ? CHAIN_TIERS_ZH[chain][t] : t}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -442,6 +448,36 @@ export default function CalculatorView({ language }: Props) {
                   </div>
                 </div>
               </div>
+
+              {(() => {
+                const buyPointsCostRMBPerPoint = BUY_POINTS_COST_USD[chain] * exchangeRate;
+                const breakEvenBuyPointsCost = breakEvenPoints * buyPointsCostRMBPerPoint;
+                if (breakEvenBuyPointsCost < totalCash) {
+                  const savings = totalCash - breakEvenBuyPointsCost;
+                  return (
+                    <div className="bg-emerald-500/20 border border-emerald-400/30 rounded-lg p-4 backdrop-blur-sm mt-4">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xl leading-none flex-shrink-0">💡</span>
+                        <div>
+                          <div className="text-sm text-emerald-100 font-medium mb-1">
+                            {language === 'zh' ? '买分套利' : 'Buy-Points Arbitrage'}
+                          </div>
+                          <p className="text-xs text-emerald-100/80 leading-relaxed">
+                            {language === 'zh' 
+                              ? `若以促销价购买积分，兑换此房型可节省约 ` 
+                              : `Buying points for this stay could save you around `}
+                            <strong className="text-white text-sm">¥{savings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+                            {language === 'zh' 
+                              ? ` (买分成本约 ¥${breakEvenBuyPointsCost.toLocaleString(undefined, { maximumFractionDigits: 0 })})` 
+                              : ` (Cost to buy points: ¥${breakEvenBuyPointsCost.toLocaleString(undefined, { maximumFractionDigits: 0 })})`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               <button
                 onClick={handleSave}

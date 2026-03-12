@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Crown, LogOut, Save, RefreshCw, Settings } from 'lucide-react';
-import { Language, UserSettings, Chain, UserTier } from '../types';
+import { Language, UserSettings, Chain, UserTier, CHAIN_TIERS, CHAIN_NAMES_ZH, CHAIN_TIERS_ZH } from '../types';
 import { translations } from '../i18n/translations';
 
 interface Props {
@@ -16,7 +16,8 @@ export default function ProfileModal({ userSettings, onSave, onClose, onLogout, 
   const [localSettings, setLocalSettings] = useState<UserSettings>({ 
     tiers: { ...userSettings.tiers },
     pointValues: { ...userSettings.pointValues },
-    exchangeRate: userSettings.exchangeRate
+    exchangeRate: userSettings.exchangeRate,
+    taxRate: userSettings.taxRate || 16.0
   });
   const [isFetchingRate, setIsFetchingRate] = useState(false);
   const [activeTab, setActiveTab] = useState<'tiers' | 'valuations'>('tiers');
@@ -86,7 +87,7 @@ export default function ProfileModal({ userSettings, onSave, onClose, onLogout, 
               <div className="space-y-4">
                 {chains.map((chain) => (
                   <div key={chain} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
-                    <span className="font-bold text-gray-900">{chain}</span>
+                    <span className="font-bold text-gray-900">{language === 'zh' ? CHAIN_NAMES_ZH[chain] : chain}</span>
                     <select
                       value={localSettings.tiers[chain]}
                       onChange={(e) => setLocalSettings({ 
@@ -95,11 +96,11 @@ export default function ProfileModal({ userSettings, onSave, onClose, onLogout, 
                       })}
                       className="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer"
                     >
-                      <option value="Member">{t.tierMember}</option>
-                      <option value="Silver">{t.tierSilver}</option>
-                      <option value="Gold">{t.tierGold}</option>
-                      <option value="Platinum">{t.tierPlatinum}</option>
-                      <option value="Diamond">{t.tierDiamond}</option>
+                      {CHAIN_TIERS[chain].map(tier => (
+                        <option key={tier} value={tier}>
+                          {language === 'zh' ? CHAIN_TIERS_ZH[chain][tier] : tier}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 ))}
@@ -108,6 +109,27 @@ export default function ProfileModal({ userSettings, onSave, onClose, onLogout, 
           ) : (
             <div className="space-y-6">
               <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-bold text-gray-900">
+                    {language === 'zh' ? '默认税率/服务费 (Tax & Fees %)' : 'Default Tax & Fees (%)'}
+                  </label>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={localSettings.taxRate}
+                    onChange={(e) => setLocalSettings({ ...localSettings, taxRate: Number(e.target.value) })}
+                    className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 pr-8 outline-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {language === 'zh' ? '国内通常为 16.0%，用于在计算回血时扣除税费部分。' : 'Usually 16.0% in China. Used to deduct taxes before calculating points.'}
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-bold text-gray-900">
                     {language === 'zh' ? '美元兑人民币汇率 (USD to RMB)' : 'Exchange Rate (USD to RMB)'}
@@ -137,7 +159,7 @@ export default function ProfileModal({ userSettings, onSave, onClose, onLogout, 
                 <div className="space-y-3">
                   {chains.map((chain) => (
                     <div key={chain} className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700 w-24">{chain}</span>
+                      <span className="text-sm font-medium text-gray-700 w-24">{language === 'zh' ? CHAIN_NAMES_ZH[chain] : chain}</span>
                       <div className="relative flex-1">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">¥</span>
                         <input

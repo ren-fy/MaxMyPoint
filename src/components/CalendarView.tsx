@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
+import { zhCN, enUS } from 'date-fns/locale';
 import { HotelAvailability, DayAvailability, Language, Chain, UserSettings } from '../types';
 import { calculateMetrics } from '../utils/calculator';
 import { cn } from '../utils/cn';
-import { ChevronLeft, ChevronRight, Bell } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Bell, X } from 'lucide-react';
 import { translations } from '../i18n/translations';
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 export default function CalendarView({ availability, hotelChain, userSettings, onCreateAlert, language }: Props) {
   const [currentDate, setCurrentDate] = useState(startOfMonth(new Date()));
   const [displayMode, setDisplayMode] = useState<'none' | 'points' | 'cash' | 'netCost' | 'returnPoints' | 'returnRate' | 'cpp'>('points');
+  const [selectedDateDetails, setSelectedDateDetails] = useState<string | null>(null);
   const t = translations[language];
   
   const availabilityMap = new Map<string, DayAvailability>();
@@ -28,10 +30,11 @@ export default function CalendarView({ availability, hotelChain, userSettings, o
   const prevMonth = () => setCurrentDate(addMonths(currentDate, -1));
 
   const monthsToRender = [
-    currentDate,
-    addMonths(currentDate, 1),
-    addMonths(currentDate, 2),
+    currentDate
   ];
+
+  const locale = language === 'zh' ? zhCN : enUS;
+  const weekDays = language === 'zh' ? ['日', '一', '二', '三', '四', '五', '六'] : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   const formatNumber = (num: number) => {
     if (num >= 1000) {
@@ -50,12 +53,8 @@ export default function CalendarView({ availability, hotelChain, userSettings, o
 
     return (
       <div key={monthDate.toISOString()} className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4">
-        <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-4 text-center">
-          {format(monthDate, 'MMMM yyyy')}
-        </h3>
-        
         <div className="grid grid-cols-7 gap-1 mb-2">
-          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+          {weekDays.map(day => (
             <div key={day} className="text-center text-[10px] sm:text-xs font-semibold text-gray-500">
               {day}
             </div>
@@ -80,7 +79,7 @@ export default function CalendarView({ availability, hotelChain, userSettings, o
               <div 
                 key={dateStr}
                 className="group relative aspect-square"
-                onClick={() => onCreateAlert(dateStr)}
+                onClick={() => setSelectedDateDetails(dateStr)}
               >
                 <div className={cn(
                   "w-full h-full flex flex-col items-center justify-center rounded-md cursor-pointer transition-all p-0.5",
@@ -136,55 +135,7 @@ export default function CalendarView({ availability, hotelChain, userSettings, o
                   )}
                 </div>
                 
-                {/* Tooltip */}
-                {dayData && metrics && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-gray-900 text-white text-xs rounded-lg p-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 shadow-xl pointer-events-none">
-                    <div className="font-bold mb-2 text-sm border-b border-gray-700 pb-1">{format(day, 'MMM d, yyyy')}</div>
-                    {isAvailable ? (
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">{t.points}:</span>
-                          <span className="font-semibold text-green-400">{dayData.points.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">{t.cash}:</span>
-                          <span className="font-semibold">¥{dayData.cash.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">{t.returnPoints}:</span>
-                          <span className="font-semibold text-amber-400">{metrics.returnPoints.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">{t.returnRate}:</span>
-                          <span className="font-semibold text-amber-400">{metrics.returnRate}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">{t.netCost}:</span>
-                          <span className="font-semibold text-rose-400">¥{metrics.netCost.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between border-t border-gray-700 pt-1.5 mt-1.5">
-                          <span className="text-gray-400">{t.value}:</span>
-                          <span className="font-semibold text-blue-400">¥{metrics.cpp}</span>
-                        </div>
-                        {dayData.pointsDrop && (
-                          <div className="flex justify-between border-t border-gray-700 pt-1.5 mt-1.5">
-                            <span className="text-gray-400">{t.pointsDrop}:</span>
-                            <span className="font-semibold text-green-400">↓ {dayData.pointsDrop.toLocaleString()}</span>
-                          </div>
-                        )}
-                        {dayData.cashDrop && (
-                          <div className="flex justify-between border-t border-gray-700 pt-1.5 mt-1.5">
-                            <span className="text-gray-400">{t.cashDrop}:</span>
-                            <span className="font-semibold text-green-400">↓ ¥{dayData.cashDrop.toLocaleString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-gray-400 py-2">{t.notAvailable}</div>
-                    )}
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45" />
-                  </div>
-                )}
+                {/* Tooltip removed for mobile-friendly modal */}
               </div>
             );
           })}
@@ -203,8 +154,8 @@ export default function CalendarView({ availability, hotelChain, userSettings, o
           >
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <span className="font-medium text-gray-900 text-sm sm:text-base">
-            {format(monthsToRender[0], 'MMM yyyy')} - {format(monthsToRender[2], 'MMM yyyy')}
+          <span className="font-medium text-gray-900 text-sm sm:text-base capitalize">
+            {format(monthsToRender[0], language === 'zh' ? 'yyyy年 M月' : 'MMMM yyyy', { locale })}
           </span>
           <button 
             onClick={nextMonth}
@@ -243,7 +194,7 @@ export default function CalendarView({ availability, hotelChain, userSettings, o
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="max-w-md mx-auto">
         {monthsToRender.map(renderMonth)}
       </div>
       
@@ -257,6 +208,113 @@ export default function CalendarView({ availability, hotelChain, userSettings, o
           <span>{t.notAvailable}</span>
         </div>
       </div>
+
+      {/* Date Details Modal */}
+      {selectedDateDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900 capitalize">
+                {format(new Date(selectedDateDetails), language === 'zh' ? 'yyyy年M月d日' : 'MMM d, yyyy', { locale })}
+              </h3>
+              <button 
+                onClick={() => setSelectedDateDetails(null)}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-5">
+              {(() => {
+                const dayData = availabilityMap.get(selectedDateDetails);
+                const isAvailable = dayData?.available;
+                const metrics = isAvailable && dayData 
+                  ? calculateMetrics(hotelChain, dayData.cash, dayData.points, userSettings) 
+                  : null;
+
+                if (!dayData || !isAvailable || !metrics) {
+                  return (
+                    <div className="text-center py-6">
+                      <div className="text-gray-500 mb-6">{t.notAvailable}</div>
+                      <button
+                        onClick={() => {
+                          onCreateAlert(selectedDateDetails);
+                          setSelectedDateDetails(null);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl font-medium transition-colors"
+                      >
+                        <Bell className="w-5 h-5" />
+                        {t.createAlert}
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                      <span className="text-gray-600 font-medium">{t.points}</span>
+                      <span className="font-bold text-green-600 text-lg">{dayData.points.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                      <span className="text-gray-600 font-medium">{t.cash}</span>
+                      <span className="font-bold text-gray-900 text-lg">¥{dayData.cash.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div className="bg-amber-50 p-3 rounded-lg">
+                        <div className="text-xs text-amber-800 mb-1">{t.returnPoints}</div>
+                        <div className="font-bold text-amber-600">+{metrics.returnPoints.toLocaleString()}</div>
+                      </div>
+                      <div className="bg-amber-50 p-3 rounded-lg">
+                        <div className="text-xs text-amber-800 mb-1">{t.returnRate}</div>
+                        <div className="font-bold text-amber-600">{metrics.returnRate}%</div>
+                      </div>
+                      <div className="bg-rose-50 p-3 rounded-lg">
+                        <div className="text-xs text-rose-800 mb-1">{t.netCost}</div>
+                        <div className="font-bold text-rose-600">¥{metrics.netCost.toLocaleString()}</div>
+                      </div>
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <div className="text-xs text-blue-800 mb-1">{t.value}</div>
+                        <div className="font-bold text-blue-600">¥{metrics.cpp}</div>
+                      </div>
+                    </div>
+
+                    {(dayData.pointsDrop || dayData.cashDrop) && (
+                      <div className="mt-4 p-3 border border-green-100 bg-green-50 rounded-lg space-y-2">
+                        <div className="text-xs font-bold text-green-800 uppercase tracking-wider mb-2">Price Drop Detected</div>
+                        {dayData.pointsDrop && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-green-700">{t.pointsDrop}:</span>
+                            <span className="font-bold text-green-700">↓ {dayData.pointsDrop.toLocaleString()}</span>
+                          </div>
+                        )}
+                        {dayData.cashDrop && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-green-700">{t.cashDrop}:</span>
+                            <span className="font-bold text-green-700">↓ ¥{dayData.cashDrop.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        onCreateAlert(selectedDateDetails);
+                        setSelectedDateDetails(null);
+                      }}
+                      className="w-full mt-6 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl font-medium transition-colors"
+                    >
+                      <Bell className="w-5 h-5" />
+                      {t.createAlert}
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

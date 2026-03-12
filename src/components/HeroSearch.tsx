@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Calendar, ArrowDownUp, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
-import { Chain, Language, SearchFilters, SortOption } from '../types';
+import { Chain, Language, SearchFilters, SortOption, CHAIN_NAMES_ZH } from '../types';
 import { cn } from '../utils/cn';
 import { translations } from '../i18n/translations';
 
@@ -28,10 +28,10 @@ export default function HeroSearch({ onSearch, language }: Props) {
 
   const CHAINS: { id: Chain | null; label: string }[] = [
     { id: null, label: t.all },
-    { id: 'Hyatt', label: 'Hyatt' },
-    { id: 'Hilton', label: 'Hilton' },
-    { id: 'Marriott', label: 'Marriott' },
-    { id: 'IHG', label: 'IHG' },
+    { id: 'Hyatt', label: language === 'zh' ? CHAIN_NAMES_ZH['Hyatt'] : 'Hyatt' },
+    { id: 'Hilton', label: language === 'zh' ? CHAIN_NAMES_ZH['Hilton'] : 'Hilton' },
+    { id: 'Marriott', label: language === 'zh' ? CHAIN_NAMES_ZH['Marriott'] : 'Marriott' },
+    { id: 'IHG', label: language === 'zh' ? CHAIN_NAMES_ZH['IHG'] : 'IHG' },
   ];
 
   const handleSubmit = (e: React.FormEvent) => {

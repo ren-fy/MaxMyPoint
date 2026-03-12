@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Hotel, HotelWithMetrics, HotelMetrics, Language, SearchFilters, UserSettings, HotelAvailability } from './types';
+import { format, addDays, parseISO } from 'date-fns';
+import { Hotel, HotelWithMetrics, HotelMetrics, Language, SearchFilters, UserSettings, HotelAvailability, DayAvailability } from './types';
 import { calculateMetrics } from './utils/calculator';
 import Header from './components/Header';
 import HeroSearch from './components/HeroSearch';
@@ -26,20 +27,12 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [userSettings, setUserSettings] = useState<UserSettings>(() => {
-    const saved = localStorage.getItem('userSettings');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse user settings', e);
-      }
-    }
-    return {
+    const defaultSettings: UserSettings = {
       tiers: {
         Hyatt: 'Member',
         Hilton: 'Member',
         Marriott: 'Member',
-        IHG: 'Member'
+        IHG: 'Club'
       },
       pointValues: {
         Hyatt: 0.12,
@@ -47,8 +40,40 @@ export default function App() {
         Hilton: 0.03,
         IHG: 0.035
       },
-      exchangeRate: 7.2
+      exchangeRate: 6.8,
+      taxRate: 16.0
     };
+
+    const saved = localStorage.getItem('userSettings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.taxRate === undefined) {
+          parsed.taxRate = 16.0;
+        }
+        
+        // Validate tiers against new real names
+        const validTiers = {
+          Marriott: ['Member', 'Silver Elite', 'Gold Elite', 'Platinum Elite', 'Titanium Elite', 'Ambassador Elite'],
+          Hilton: ['Member', 'Silver', 'Gold', 'Diamond'],
+          Hyatt: ['Member', 'Discoverist', 'Explorist', 'Globalist'],
+          IHG: ['Club', 'Silver Elite', 'Gold Elite', 'Platinum Elite', 'Diamond Elite']
+        };
+        
+        if (parsed.tiers) {
+          Object.keys(validTiers).forEach((chain) => {
+            if (!validTiers[chain as keyof typeof validTiers].includes(parsed.tiers[chain])) {
+              parsed.tiers[chain] = defaultSettings.tiers[chain as keyof typeof defaultSettings.tiers];
+            }
+          });
+        }
+
+        return { ...defaultSettings, ...parsed, tiers: { ...defaultSettings.tiers, ...(parsed.tiers || {}) } };
+      } catch (e) {
+        console.error('Failed to parse user settings', e);
+      }
+    }
+    return defaultSettings;
   });
 
   useEffect(() => {
@@ -127,11 +152,17 @@ export default function App() {
 
       const metrics: HotelMetrics = {
         minPoints: Infinity,
+        minPointsDate: undefined,
         minCash: Infinity,
+        minCashDate: undefined,
         minNetCost: Infinity,
+        minNetCostDate: undefined,
         maxReturnPoints: 0,
+        maxReturnPointsDate: undefined,
         maxReturnRate: 0,
+        maxReturnRateDate: undefined,
         maxCpp: 0,
+        maxCppDate: undefined,
         fifthNightFree: null,
         hasAvailability: validDays.length > 0,
         maxPointsDrop: 0,
@@ -143,12 +174,31 @@ export default function App() {
       if (validDays.length > 0) {
         validDays.forEach(d => {
           const dayMetrics = calculateMetrics(hotel.chain, d.cash, d.points, userSettings);
-          metrics.minPoints = Math.min(metrics.minPoints, d.points);
-          metrics.minCash = Math.min(metrics.minCash, d.cash);
-          metrics.minNetCost = Math.min(metrics.minNetCost, dayMetrics.netCost);
-          metrics.maxReturnPoints = Math.max(metrics.maxReturnPoints, dayMetrics.returnPoints);
-          metrics.maxReturnRate = Math.max(metrics.maxReturnRate, dayMetrics.returnRate);
-          metrics.maxCpp = Math.max(metrics.maxCpp, dayMetrics.cpp);
+          
+          if (d.points < metrics.minPoints) {
+            metrics.minPoints = d.points;
+            metrics.minPointsDate = d.date;
+          }
+          if (d.cash < metrics.minCash) {
+            metrics.minCash = d.cash;
+            metrics.minCashDate = d.date;
+          }
+          if (dayMetrics.netCost < metrics.minNetCost) {
+            metrics.minNetCost = dayMetrics.netCost;
+            metrics.minNetCostDate = d.date;
+          }
+          if (dayMetrics.returnPoints > metrics.maxReturnPoints) {
+            metrics.maxReturnPoints = dayMetrics.returnPoints;
+            metrics.maxReturnPointsDate = d.date;
+          }
+          if (dayMetrics.returnRate > metrics.maxReturnRate) {
+            metrics.maxReturnRate = dayMetrics.returnRate;
+            metrics.maxReturnRateDate = d.date;
+          }
+          if (dayMetrics.cpp > metrics.maxCpp) {
+            metrics.maxCpp = dayMetrics.cpp;
+            metrics.maxCppDate = d.date;
+          }
 
           if (d.pointsDrop && d.pointsDrop > (metrics.maxPointsDrop || 0)) {
             metrics.maxPointsDrop = d.pointsDrop;
@@ -160,8 +210,40 @@ export default function App() {
           }
         });
         
-        if (hotel.chain === 'Marriott' || hotel.chain === 'Hilton') {
-          metrics.fifthNightFree = metrics.minPoints * 4;
+        if (['Marriott', 'Hilton', 'IHG'].includes(hotel.chain)) {
+          const dateSet = new Map<string, DayAvailability>(validDays.map(d => [d.date, d]));
+          let minCost = Infinity;
+
+          for (const day of validDays) {
+            let isConsecutive = true;
+            let totalPoints = 0;
+            let minPointsInStay = Infinity;
+
+            const start = parseISO(day.date);
+            for (let i = 0; i < 5; i++) {
+              const nextDate = format(addDays(start, i), 'yyyy-MM-dd');
+              const nextDay = dateSet.get(nextDate);
+              if (!nextDay) {
+                isConsecutive = false;
+                break;
+              }
+              totalPoints += nextDay.points;
+              if (nextDay.points < minPointsInStay) {
+                minPointsInStay = nextDay.points;
+              }
+            }
+
+            if (isConsecutive) {
+              const cost = totalPoints - minPointsInStay;
+              if (cost < minCost) {
+                minCost = cost;
+              }
+            }
+          }
+
+          if (minCost !== Infinity) {
+            metrics.fifthNightFree = minCost;
+          }
         }
       }
 
@@ -234,7 +316,8 @@ export default function App() {
         Hilton: 0.03,
         IHG: 0.035
       },
-      exchangeRate: 7.2
+      exchangeRate: 6.8,
+      taxRate: 16.0
     });
   };
 
@@ -260,7 +343,7 @@ export default function App() {
       />
 
       {currentView === 'calculator' ? (
-        <CalculatorView language={language} />
+        <CalculatorView language={language} userSettings={userSettings} />
       ) : currentView === 'alerts' ? (
         <AlertsView language={language} />
       ) : currentView === 'pricing' ? (
@@ -301,6 +384,7 @@ export default function App() {
                 hotels={filteredHotels} 
                 onSelect={setSelectedHotel} 
                 language={language}
+                userSettings={userSettings}
               />
             ) : (
               <div className="text-center py-16 bg-white rounded-xl border border-gray-200 px-4">
