@@ -19,7 +19,7 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('zh');
   
   // Data State
-  const [hotels, setHotels] = useState<Hotel[]>([]);
+  const [filteredHotels, setFilteredHotels] = useState<HotelWithMetrics[]>([]);
   const [availability, setAvailability] = useState<Record<string, HotelAvailability>>({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -90,25 +90,25 @@ export default function App() {
   
   const t = translations[language];
 
-  // Fetch data from backend API
+  // Fetch data from backend API whenever filters or settings change
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchHotels = async () => {
       try {
         setIsLoading(true);
-        const [hotelsRes, availabilityRes] = await Promise.all([
-          fetch('/api/hotels'),
-          fetch('/api/availability')
-        ]);
+        const res = await fetch('/api/hotels/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ filters, userSettings })
+        });
         
-        if (!hotelsRes.ok || !availabilityRes.ok) {
+        if (!res.ok) {
           throw new Error('Failed to fetch data');
         }
         
-        const hotelsData = await hotelsRes.json();
-        const availabilityData = await availabilityRes.json();
-        
-        setHotels(hotelsData);
-        setAvailability(availabilityData);
+        const data = await res.json();
+        setFilteredHotels(data);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -116,178 +116,25 @@ export default function App() {
       }
     };
     
-    fetchData();
-  }, []);
+    // Debounce the fetch slightly to avoid too many requests while typing
+    const timeoutId = setTimeout(() => {
+      fetchHotels();
+    }, 300);
 
-  const filteredHotels = useMemo(() => {
-    let result: HotelWithMetrics[] = [];
+    return () => clearTimeout(timeoutId);
+  }, [filters, userSettings]);
 
-    for (const hotel of hotels) {
-      // 1. Text Search
-      const matchesSearch = 
-        hotel.name.toLowerCase().includes(filters.query.toLowerCase()) ||
-        hotel.city.toLowerCase().includes(filters.query.toLowerCase()) ||
-        hotel.country.toLowerCase().includes(filters.query.toLowerCase());
-      
-      // 2. Chain Filter
-      const matchesChain = filters.chain ? hotel.chain === filters.chain : true;
-      
-      if (!matchesSearch || !matchesChain) continue;
-
-      // 3. Date Filter & Metrics Calculation
-      const hotelAvailability = availability[hotel.id]?.days || [];
-      let validDays = hotelAvailability.filter(d => d.available);
-
-      if (filters.startDate) {
-        validDays = validDays.filter(d => d.date >= filters.startDate);
-      }
-      if (filters.endDate) {
-        validDays = validDays.filter(d => d.date <= filters.endDate);
-      }
-
-      // If dates are specified but no availability, skip this hotel
-      if ((filters.startDate || filters.endDate) && validDays.length === 0) {
-        continue;
-      }
-
-      const metrics: HotelMetrics = {
-        minPoints: Infinity,
-        minPointsDate: undefined,
-        minCash: Infinity,
-        minCashDate: undefined,
-        minNetCost: Infinity,
-        minNetCostDate: undefined,
-        maxReturnPoints: 0,
-        maxReturnPointsDate: undefined,
-        maxReturnRate: 0,
-        maxReturnRateDate: undefined,
-        maxCpp: 0,
-        maxCppDate: undefined,
-        fifthNightFree: null,
-        hasAvailability: validDays.length > 0,
-        maxPointsDrop: 0,
-        maxCashDrop: 0,
-        maxPointsDropDate: undefined,
-        maxCashDropDate: undefined
-      };
-
-      if (validDays.length > 0) {
-        validDays.forEach(d => {
-          const dayMetrics = calculateMetrics(hotel.chain, d.cash, d.points, userSettings);
-          
-          if (d.points < metrics.minPoints) {
-            metrics.minPoints = d.points;
-            metrics.minPointsDate = d.date;
-          }
-          if (d.cash < metrics.minCash) {
-            metrics.minCash = d.cash;
-            metrics.minCashDate = d.date;
-          }
-          if (dayMetrics.netCost < metrics.minNetCost) {
-            metrics.minNetCost = dayMetrics.netCost;
-            metrics.minNetCostDate = d.date;
-          }
-          if (dayMetrics.returnPoints > metrics.maxReturnPoints) {
-            metrics.maxReturnPoints = dayMetrics.returnPoints;
-            metrics.maxReturnPointsDate = d.date;
-          }
-          if (dayMetrics.returnRate > metrics.maxReturnRate) {
-            metrics.maxReturnRate = dayMetrics.returnRate;
-            metrics.maxReturnRateDate = d.date;
-          }
-          if (dayMetrics.cpp > metrics.maxCpp) {
-            metrics.maxCpp = dayMetrics.cpp;
-            metrics.maxCppDate = d.date;
-          }
-
-          if (d.pointsDrop && d.pointsDrop > (metrics.maxPointsDrop || 0)) {
-            metrics.maxPointsDrop = d.pointsDrop;
-            metrics.maxPointsDropDate = d.date;
-          }
-          if (d.cashDrop && d.cashDrop > (metrics.maxCashDrop || 0)) {
-            metrics.maxCashDrop = d.cashDrop;
-            metrics.maxCashDropDate = d.date;
-          }
-        });
-        
-        if (['Marriott', 'Hilton', 'IHG'].includes(hotel.chain)) {
-          const dateSet = new Map<string, DayAvailability>(validDays.map(d => [d.date, d]));
-          let minCost = Infinity;
-
-          for (const day of validDays) {
-            let isConsecutive = true;
-            let totalPoints = 0;
-            let minPointsInStay = Infinity;
-
-            const start = parseISO(day.date);
-            for (let i = 0; i < 5; i++) {
-              const nextDate = format(addDays(start, i), 'yyyy-MM-dd');
-              const nextDay = dateSet.get(nextDate);
-              if (!nextDay) {
-                isConsecutive = false;
-                break;
-              }
-              totalPoints += nextDay.points;
-              if (nextDay.points < minPointsInStay) {
-                minPointsInStay = nextDay.points;
-              }
-            }
-
-            if (isConsecutive) {
-              const cost = totalPoints - minPointsInStay;
-              if (cost < minCost) {
-                minCost = cost;
-              }
-            }
-          }
-
-          if (minCost !== Infinity) {
-            metrics.fifthNightFree = minCost;
-          }
-        }
-      }
-
-      // 4. Apply advanced filters
-      if (filters.maxCash && metrics.minCash > filters.maxCash) continue;
-      if (filters.maxPoints && metrics.minPoints > filters.maxPoints) continue;
-      if (filters.maxNetCost && metrics.minNetCost > filters.maxNetCost) continue;
-      if (filters.minReturnRate && metrics.maxReturnRate < filters.minReturnRate) continue;
-      if (filters.minCpp && metrics.maxCpp < filters.minCpp) continue;
-
-      result.push({
-        ...hotel,
-        metrics
-      });
+  // Fetch detailed availability when a hotel is selected
+  useEffect(() => {
+    if (selectedHotel && !availability[selectedHotel.id]) {
+      fetch(`/api/availability/${selectedHotel.id}`)
+        .then(res => res.json())
+        .then(data => {
+          setAvailability(prev => ({ ...prev, [selectedHotel.id]: data }));
+        })
+        .catch(err => console.error('Error fetching hotel details:', err));
     }
-
-    // 5. Sorting
-    result.sort((a, b) => {
-      switch (filters.sortBy) {
-        case 'points_asc':
-          return a.metrics.minPoints - b.metrics.minPoints;
-        case 'cash_asc':
-          return a.metrics.minCash - b.metrics.minCash;
-        case 'net_cost_asc':
-          return a.metrics.minNetCost - b.metrics.minNetCost;
-        case 'cpp_desc':
-          return b.metrics.maxCpp - a.metrics.maxCpp;
-        case 'return_rate_desc':
-          return b.metrics.maxReturnRate - a.metrics.maxReturnRate;
-        case 'return_points_desc':
-          return b.metrics.maxReturnPoints - a.metrics.maxReturnPoints;
-        case 'points_drop_desc':
-          return (b.metrics.maxPointsDrop || 0) - (a.metrics.maxPointsDrop || 0);
-        case 'cash_drop_desc':
-          return (b.metrics.maxCashDrop || 0) - (a.metrics.maxCashDrop || 0);
-        case 'recommended':
-        default:
-          // Default sort by availability score (descending)
-          return b.availabilityScore - a.availabilityScore;
-      }
-    });
-
-    return result;
-  }, [filters, userSettings, hotels, availability]);
+  }, [selectedHotel, availability]);
 
   const handleSearch = (newFilters: SearchFilters) => {
     setFilters(newFilters);
