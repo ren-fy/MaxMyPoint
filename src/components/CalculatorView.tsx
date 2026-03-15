@@ -331,53 +331,9 @@ export default function CalculatorView({ language, userSettings }: Props) {
           </div>
         </div>
 
-        {/* Results Panel */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-gray-500" />
-              {t.savedCalculations}
-            </h3>
-            {savedCalculations.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-8">
-                {t.noSaved}
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
-                {savedCalculations.map(calc => (
-                  <div key={calc.id} className="group relative bg-gray-50 border border-gray-100 rounded-lg p-4 hover:border-blue-200 transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="font-medium text-sm text-gray-900 truncate pr-6">{calc.name}</div>
-                      <button
-                        onClick={() => handleDelete(calc.id)}
-                        className="absolute top-3 right-3 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="text-xs text-gray-500 mb-3">
-                      {new Date(calc.date).toLocaleDateString()} {new Date(calc.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                    </div>
-                    <div className="flex justify-between items-end">
-                      <div className="text-sm">
-                        <span className="text-emerald-600 font-medium">¥{calc.results.netCost.toFixed(0)}</span>
-                        <span className="text-gray-400 mx-1.5">|</span>
-                        <span className="text-blue-600 font-medium">{calc.results.totalPoints.toLocaleString()} pts</span>
-                      </div>
-                      <button
-                        onClick={() => handleLoad(calc)}
-                        className="text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md transition-colors"
-                      >
-                        {t.load}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Results Panel */}
+        {/* Right Column: Results Panel */}
         <div className="space-y-6">
           <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl shadow-md p-6 text-white lg:sticky lg:top-24">
             <h2 className="text-lg font-medium text-blue-100 mb-2">
@@ -487,6 +443,51 @@ export default function CalculatorView({ language, userSettings }: Props) {
                 {t.saveCalculation}
               </button>
             </div>
+          </div>
+
+          {/* Saved Calculations Panel */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-gray-500" />
+              {t.savedCalculations}
+            </h3>
+            {savedCalculations.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-8">
+                {t.noSaved}
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 max-h-[600px] overflow-y-auto pr-2">
+                {savedCalculations.map(calc => (
+                  <div key={calc.id} className="group relative bg-gray-50 border border-gray-100 rounded-lg p-4 hover:border-blue-200 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="font-medium text-sm text-gray-900 truncate pr-6">{calc.name}</div>
+                      <button
+                        onClick={() => handleDelete(calc.id)}
+                        className="absolute top-3 right-3 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="text-xs text-gray-500 mb-3">
+                      {new Date(calc.date).toLocaleDateString()} {new Date(calc.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </div>
+                    <div className="flex justify-between items-end">
+                      <div className="text-sm">
+                        <span className="text-emerald-600 font-medium">¥{calc.results.netCost.toFixed(0)}</span>
+                        <span className="text-gray-400 mx-1.5">|</span>
+                        <span className="text-blue-600 font-medium">{calc.results.totalPoints.toLocaleString()} pts</span>
+                      </div>
+                      <button
+                        onClick={() => handleLoad(calc)}
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-md transition-colors"
+                      >
+                        {t.load}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

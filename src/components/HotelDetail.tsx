@@ -165,6 +165,25 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
         </div>
       </div>
 
+      <div className="mt-8 mb-6 px-2 sm:px-0">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t.calendarTitle}</h2>
+        <p className="text-sm sm:text-base text-gray-500">{t.calendarDesc}</p>
+        <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800 flex items-start gap-3">
+          <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <p>
+            <strong>Note on Scraping:</strong> Real-time web scraping requires a dedicated backend server (e.g., Node.js/Python) and cannot be executed directly within this static browser preview due to CORS and sandbox limitations. The data shown below is simulated to demonstrate the UI capabilities. The frontend architecture is fully prepared to connect to a real backend API.
+          </p>
+        </div>
+      </div>
+
+      <CalendarView 
+        availability={availability}
+        hotelChain={hotel.chain}
+        userSettings={userSettings}
+        onCreateAlert={handleOpenAlert} 
+        language={language}
+      />
+
       <FifthNightCalculator 
         availability={availability}
         hotelChain={hotel.chain}
@@ -200,25 +219,6 @@ export default function HotelDetail({ hotel, availability, onBack, language, use
 
       <PriceTrendChart 
         data={availability.days}
-        language={language}
-      />
-
-      <div className="mt-8 mb-6 px-2 sm:px-0">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{t.calendarTitle}</h2>
-        <p className="text-sm sm:text-base text-gray-500">{t.calendarDesc}</p>
-        <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800 flex items-start gap-3">
-          <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          <p>
-            <strong>Note on Scraping:</strong> Real-time web scraping requires a dedicated backend server (e.g., Node.js/Python) and cannot be executed directly within this static browser preview due to CORS and sandbox limitations. The data shown below is simulated to demonstrate the UI capabilities. The frontend architecture is fully prepared to connect to a real backend API.
-          </p>
-        </div>
-      </div>
-
-      <CalendarView 
-        availability={availability}
-        hotelChain={hotel.chain}
-        userSettings={userSettings}
-        onCreateAlert={handleOpenAlert} 
         language={language}
       />
 
