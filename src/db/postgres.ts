@@ -9,8 +9,10 @@ dotenv.config();
 // Or you can use a connection string: DATABASE_URL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // If you are connecting to a remote database (like Supabase or Neon), you often need SSL
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
+  // Only use SSL if explicitly requested via environment variable, or if it's a known remote host (like Supabase)
+  ssl: (process.env.PGSSLMODE === 'require' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('supabase.com'))) 
+    ? { rejectUnauthorized: false } 
+    : undefined
 });
 
 // Test the connection
